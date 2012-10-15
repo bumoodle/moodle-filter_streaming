@@ -118,6 +118,10 @@ function local_link_exists($link)
     return file_exists($link);
 }
 
+function html5_video_playback($url, $width=800, $height=600) {
+    return '<video width="'.$width.'" height="'.$height.'" src="'.$url.'" />';
+}
+
 ///===========================
 /// callback filter functions
 
@@ -140,9 +144,13 @@ function mediaplugin_filter_mp4_callback($link)
     $width  = empty($link[3]) ? '800' : $link[3];
     $height = empty($link[4]) ? '600' : $link[4];
 
+    if($PAGE->theme->name == "bumobile" || $PAGE->theme->name == "mymobile") {
+        return html5_video_playback($url, '100%', 'auto' );
+    }
+
     //FIXME change the swfobj to a requires
     $return_val =  '<div style="text-align: center">'.$link[0].'</div><div style="text-align:center">'.
-'<span class="mediaplugin mediaplugin_mp4" id="'.$id.'">Just a moment while we try to load the video.../span>
+'<span class="mediaplugin mediaplugin_mp4" id="'.$id.'">Just a moment while we try to load the video...</span>
 <script type="text/javascript" src="'.$CFG->wwwroot.'/filter/jwplayerfilter/swfobject.js"></script> 
 <script type="text/javascript">
 
