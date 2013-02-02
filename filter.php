@@ -119,7 +119,7 @@ function local_link_exists($link)
 }
 
 function html5_video_playback($url, $width=800, $height=600) {
-    return '<video width="'.$width.'" height="'.$height.'" src="'.$url.'" />';
+   return '<video width="'.$width.'" height="'.$height.'" src="'.$url.'" controls />';
 }
 
 ///===========================
@@ -141,12 +141,21 @@ function mediaplugin_filter_mp4_callback($link)
     else
         $url = addslashes_js($link[1]);
 
+    //If we have a mobile or a tablet device, embed HTML5 video instead of flash.
+    $device_type = get_device_type();
+    if($device_type == 'mobile' || $device_type == 'tablet') {
+        
+        //Pick a sane width/height for most tablets.
+        $width  = empty($link[3]) ? '640' : $link[3];
+        $height = empty($link[4]) ? '480' : $link[4];
+
+
+        return html5_video_playback($url, $width, $height );
+    }
+
     $width  = empty($link[3]) ? '800' : $link[3];
     $height = empty($link[4]) ? '600' : $link[4];
 
-    if($PAGE->theme->name == "bumobile" || $PAGE->theme->name == "mymobile") {
-        return html5_video_playback($url, '100%', 'auto' );
-    }
 
     //FIXME change the swfobj to a requires
     $return_val =  '<div style="text-align: center">'.$link[0].'</div><div style="text-align:center">'.
