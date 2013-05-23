@@ -1,0 +1,10 @@
+
+.videocontainer  {
+  text-align: center;
+  width: 100%;
+}
+
+.videocontainer .jwplayer {
+  margin-left: auto;
+  margin-right: auto;
+}

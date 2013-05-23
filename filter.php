@@ -20,118 +20,77 @@
 
 require_once($CFG->libdir.'/filelib.php');
 
-class filter_jwplayerfilter extends moodle_text_filter {
+class filter_streaming extends moodle_text_filter {
 
+    public static $created_players = 0;
+
+    /**
+     * Filters a given block of text, adding streaming media players where appropriate.
+     */
     function filter($text, array $options = array()) {
         global $CFG;
 
-        if (!is_string($text)) {
-            // non string data can not be filtered anyway
-            return $text;
-        }
-
-        //Filter for M4V
-        $search = '/<a.*?href="([^<]+\.m4v)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_mp4_callback', $text);
-
-        //Filter for MP4
-        $search = '/<a.*?href="([^<]+\.mp4)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, array($this, 'modify_link'), $text);
-        
-        //Filter for FLV
-        $search = '/<a.*?href="([^<]+\.flv)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_mp4_callback', $text);
-        
-        //Filter for F4V
-        $search = '/<a.*?href="([^<]+\.f4v)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_mp4_callback', $text);
-        
-        return $text;
+        //Replace each instance of a compatible video link with a JWPlayer instance.
+        $pattern = '/<a.*?href="([^<]+\.(mp4|m4v|flv|f4v|mov|webm))(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
+        return preg_replace_callback($pattern, array($this, 'create_embedded_player_from_url'), $text);
     }
-
-    /*
-    function filter_link_startswith($haystack, $needle)
-    {
-        $length = strlen($needle);
-        return (substr($haystack, 0, $length) === $needle);
-    }
-    */
-
 
     function html5_video_playback($url, $width=800, $height=600) {
        return '<video width="'.$width.'" height="'.$height.'" src="'.$url.'" controls />';
     }
 
-    ///===========================
-    /// callback filter functions
+    function determine_max_width_and_height($link) {
 
-    function modify_link($link) 
-    {
-        global $CFG, $PAGE;
-
-        static $count = 0;
-        $count++;
-        $id = 'filter_mp4_'.uniqid().$count; //we need something unique because it might be stored in text cache
-
-        $videomod = optional_param('modifier', '', PARAM_RAW);
-         
-        $url = addslashes_js($link[1]);
-
-        //If we have a mobile or a tablet device, embed HTML5 video instead of flash.
+        //Determine if we have a mobile device as our viewer.
         $device_type = get_device_type();
-        if($device_type == 'mobile' || $device_type == 'tablet') {
-            
-            //Pick a sane width/height for most tablets.
-            $width  = empty($link[3]) ? '640' : $link[3];
-            $height = empty($link[4]) ? '480' : $link[4];
+        $is_mobile = ($device_type == 'mobile' || $device_type == 'tablet');
 
+        //If we do, use a smaller default size.
+        $default_width = $is_mobile ? '640' : '800';
+        $default_height = $is_mobile ? '480' : '600';
 
-            return html5_video_playback($url, $width, $height );
-        }
-
+        //If no width and height were provided, use the defaults.
         $width  = empty($link[3]) ? '800' : $link[3];
         $height = empty($link[4]) ? '600' : $link[4];
 
+        return array($width, $height);
 
-        //FIXME change the swfobj to a requires
-        $return_val =  '<div style="text-align: center">'.$link[0].'</div><div style="text-align:center">'.
-    '<span class="mediaplugin mediaplugin_mp4" id="'.$id.'">Just a moment while we try to load the video...</span>
-    <script type="text/javascript" src="'.$CFG->wwwroot.'/filter/jwplayerfilter/swfobject.js"></script> 
-    <script type="text/javascript">
-
-    var s1 = new SWFObject("'.$CFG->wwwroot.'/filter/jwplayerfilter/player.swf","player","'.$width.'","'.$height.'","9.0.115");
-    s1.addParam("allowfullscreen","true");
-    s1.addParam("allowscriptaccess","always");
-    s1.addVariable("skin", "'.$CFG->wwwroot.'/filter/jwplayerfilter/skin/lulu/lulu.xml");
-    s1.addVariable("start","1");
-    s1.addVariable("file", "'.$url.'");
-    s1.addVariable("controlbar","over");
-    s1.addVariable("provider", "http");
-    s1.addVariable("http.startparam","start");
-
-    //hack for remote control
-    var player;
-    function playerReady(newPlayer)
-    {
-        player = window.document[newPlayer.id];
-        addListeners();
     }
 
-    ';
 
-        $return_val .= 's1.write("'.$id.'");  </script></div>';
+    function create_embedded_player_from_url($link) 
+    {
+        global $CFG, $PAGE;
 
-        //start the videomods div
-        $return_val .= html_writer::start_tag('div', array('class' => 'videomodifiers'));
+        //Ensure that tht JW player loader javascript has been included.
+        $PAGE->requires->js('/filter/streaming/lib/jwplayer.js', true);
 
-      
-        //FIXME: add JS for in-place load (progressive enhancement)
+        //Increment the number of known players on the given page.
+        self::$created_players++; 
 
-        $return_val .= html_writer::end_tag('div');
+        //Create a div with a unique ID for the streaming video; this prevents Moodle from caching it.
+        $playerid = 'streaming_video_'.uniqid().self::$created_players;
 
-        return $return_val;
+        //Generate the video player itself.
+        $content  = html_writer::start_tag('div', array('class' => 'videocontainer'));
+        $content .= html_writer::tag('div', $link[0], array('class' => 'videolink'));
+        $content .= html_writer::tag('div', get_string('loading', 'filter_streaming'), array('class' => 'streamingvideo', 'id' => $playerid));
+        $content .= html_writer::end_tag('div');
 
+        //Parse the link to determine the player's configuration. 
+        $url = addslashes_js($link[1]);
+        list($width, $height) = $this->determine_max_width_and_height($link);
 
+        //Initialize the JW Player.
+        $PAGE->requires->js_init_code('
+            jwplayer("'.$playerid.'").setup({
+            file: "'.$url.'",
+            width: '.$width.',
+            height: '.$height.',
+            startparam: "start"
+        })', true);
+
+        return $content;
     }
 }
 
