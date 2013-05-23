@@ -57,67 +57,6 @@ class filter_jwplayerfilter extends moodle_text_filter {
     }
     */
 
-    function existing_modifiers($link)
-    {
-       //TODO: more modifiers if necessary?
-       $valid_modifiers = array('_veryslow' => .50, '_slow' => .70, '' => 1, '_fast' => 1.3, '_veryfast' => 1.5);
-
-       //initially, assume no modifiers exist
-       $existing = array();
-
-        //for each of the modifier types, check to see if the item exists
-        foreach($valid_modifiers as $mod => $speed)
-        {
-            //get the link to the modified video
-            $new_link = $this->modifier_link($link, $mod);
-
-            //if we weren't able to figure out a modifier link, fail
-            if($new_link === false)
-                return array();
-
-            //if the local link exists, add it to our array
-            if($mod == '' || $this->local_link_exists($new_link))
-                $existing[$mod] = array('url' => $new_link, 'speed' => $speed);
-        }
-
-        //return the list of existing links
-        return $existing;
-    }
-
-    function modifier_link($link, $modname)
-    {
-            //find the location of MP4 in the string
-            $mp4pos = strrpos($link, '.mp4');
-
-            //compute the new link
-            $new_link = substr($link, 0, $mp4pos) . $modname . substr($link, $mp4pos);
-
-            //return the new link
-            return $new_link;
-
-    }
-
-    function modifier_exists($link, $modname)
-    {
-            //return true iff the local link exists
-            return $this->local_link_exists($this->modifier_link($link, $modname));
-    }
-
-    /**
-     * Returns true iff the given link exists after several replacement rules.
-     */
-    function local_link_exists($link)
-    {
-        //TODO: abstract to setting?
-        $server_alias = array('/var/www/vstream/' => '|^'.preg_quote('http://video.bumoodle.com/').'|');
-
-        //apply each server replacement rule
-        foreach($server_alias as $path => $url)
-           $link = preg_replace($url, $path, $link); 
-
-        //return true iff the file exists
-        return file_exists($link);
-    }
 
     function html5_video_playback($url, $width=800, $height=600) {
        return '<video width="'.$width.'" height="'.$height.'" src="'.$url.'" controls />';
@@ -136,11 +75,7 @@ class filter_jwplayerfilter extends moodle_text_filter {
 
         $videomod = optional_param('modifier', '', PARAM_RAW);
          
-        //if the requested modifier exists, use it
-        if($this->modifier_exists($link[1], $videomod))
-            $url = addslashes_js(modifier_link($link[1], $videomod));
-        else
-            $url = addslashes_js($link[1]);
+        $url = addslashes_js($link[1]);
 
         //If we have a mobile or a tablet device, embed HTML5 video instead of flash.
         $device_type = get_device_type();
@@ -189,26 +124,6 @@ class filter_jwplayerfilter extends moodle_text_filter {
         //start the videomods div
         $return_val .= html_writer::start_tag('div', array('class' => 'videomodifiers'));
 
-        //get all modified videos which exist for this link
-        $existing_mods = $this->existing_modifiers($link[1]);
-
-        //for each of the existing modifiers
-        foreach($existing_mods as $mod => $data)
-        {
-            //FIXME: use external target (moodle filter paradigm)
-            $url = new moodle_url($PAGE->url);
-            $url->param('modifier',  $mod);
-
-            //get the link to the vmod
-            $vmod_link = html_writer::link($url, get_string('vmod'.$mod, 'filter_jwplayerfilter'));
-
-            //add the vmod_active class if the vmod is active
-            $active = ($mod == $videomod) ? 'active' : '';
-
-            //and add it as a span
-            $return_val .= html_writer::tag('span', $vmod_link, array('class' => 'vmod vmod'.$mod.' '.$active));        
-
-        }
       
         //FIXME: add JS for in-place load (progressive enhancement)
 
