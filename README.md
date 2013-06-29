@@ -8,8 +8,8 @@ Modified by Kyle Temkin, working for Binghamton University <http://www.binghamto
 
 To install Moodle 2.1+ using git, execute the following commands in the root of your Moodle install:
 
-    git clone git://github.com/ktemkin/moodle-filter_jwplayer.git filter/jwplayerfilter
-    echo '/filter/jwplayerfilter' >> .git/info/exclude
+    git clone git://github.com/ktemkin/moodle-filter_jwplayer.git filter/streaming
+    echo '/filter/streaming' >> .git/info/exclude
     
 Or, extract the following zip in your_moodle_root/filter/:
 
