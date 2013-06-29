@@ -35,23 +35,33 @@ class filter_streaming extends moodle_text_filter {
         return preg_replace_callback($pattern, array($this, 'create_embedded_player_from_url'), $text);
     }
 
-    function html5_video_playback($url, $width=800, $height=600) {
-       return '<video width="'.$width.'" height="'.$height.'" src="'.$url.'" controls />';
-    }
-
     function determine_max_width_and_height($link) {
 
         //Determine if we have a mobile device as our viewer.
         $device_type = get_device_type();
-        $is_mobile = ($device_type == 'mobile' || $device_type == 'tablet');
 
-        //If we do, use a smaller default size.
-        $default_width = $is_mobile ? '640' : '800';
-        $default_height = $is_mobile ? '480' : '600';
+        switch($device_type) {
+
+            case 'mobile':
+                $default_width  = '320';
+                $default_height = '240';
+                break;
+
+            case 'tablet':
+                $default_width  = '640';
+                $default_height = '480';
+                break;
+
+            default:
+                $default_width  = '768';
+                $default_height = '576';
+                break;
+
+        }
 
         //If no width and height were provided, use the defaults.
-        $width  = empty($link[3]) ? '800' : $link[3];
-        $height = empty($link[4]) ? '600' : $link[4];
+        $width  = empty($link[3]) ? $default_width  : $link[3];
+        $height = empty($link[4]) ? $default_height : $link[4];
 
         return array($width, $height);
 
@@ -63,7 +73,7 @@ class filter_streaming extends moodle_text_filter {
         global $CFG, $PAGE;
 
         //Ensure that tht JW player loader javascript has been included.
-        $PAGE->requires->js('/filter/streaming/lib/jwplayer.js', true);
+        $PAGE->requires->js('/filter/streaming/lib/jwplayer.js');
 
         //Increment the number of known players on the given page.
         self::$created_players++; 
