@@ -25,6 +25,14 @@ class filter_streaming extends moodle_text_filter {
     public static $created_players = 0;
 
     /**
+     * Sets up the page to host the Flowplayer plugin.
+     */  
+    function setup($page, $context) {
+        $page->requires->jquery();
+        $page->requires->js('/filter/streaming/lib/flowplayer.min.js');
+    }
+
+    /**
      * Filters a given block of text, adding streaming media players where appropriate.
      */
     function filter($text, array $options = array()) {
@@ -35,45 +43,15 @@ class filter_streaming extends moodle_text_filter {
         return preg_replace_callback($pattern, array($this, 'create_embedded_player_from_url'), $text);
     }
 
-    function determine_max_width_and_height($link) {
 
-        //Determine if we have a mobile device as our viewer.
-        $device_type = get_device_type();
-
-        switch($device_type) {
-
-            case 'mobile':
-                $default_width  = '320';
-                $default_height = '240';
-                break;
-
-            case 'tablet':
-                $default_width  = '640';
-                $default_height = '480';
-                break;
-
-            default:
-                $default_width  = '768';
-                $default_height = '576';
-                break;
-
-        }
-
-        //If no width and height were provided, use the defaults.
-        $width  = empty($link[3]) ? $default_width  : $link[3];
-        $height = empty($link[4]) ? $default_height : $link[4];
-
-        return array($width, $height);
-
-    }
-
-
+    /**
+     * Creates an embedded FlowPlayer from the given parsed URL.
+     */
     function create_embedded_player_from_url($link) 
     {
         global $CFG, $PAGE;
 
         //Ensure that tht JW player loader javascript has been included.
-        $PAGE->requires->js('/filter/streaming/lib/jwplayer.js');
 
         //Increment the number of known players on the given page.
         self::$created_players++; 
@@ -84,21 +62,12 @@ class filter_streaming extends moodle_text_filter {
         //Generate the video player itself.
         $content  = html_writer::start_tag('div', array('class' => 'videocontainer'));
         $content .= html_writer::tag('div', $link[0], array('class' => 'videolink'));
-        $content .= html_writer::tag('div', get_string('loading', 'filter_streaming'), array('class' => 'streamingvideo', 'id' => $playerid));
+        $content .= html_writer::start_tag('div', array('class' => 'flowplayer'));
+        $content .= html_writer::start_tag('video');
+        $content .= html_writer::empty_tag('source', array('type' => 'video/mp4', 'src' => $link[1]));
+        $content .= html_writer::end_tag('video');
         $content .= html_writer::end_tag('div');
-
-        //Parse the link to determine the player's configuration. 
-        $url = addslashes_js($link[1]);
-        list($width, $height) = $this->determine_max_width_and_height($link);
-
-        //Initialize the JW Player.
-        $PAGE->requires->js_init_code('
-            jwplayer("'.$playerid.'").setup({
-            file: "'.$url.'",
-            width: '.$width.',
-            height: '.$height.',
-            startparam: "start"
-        })', true);
+        $content .= html_writer::end_tag('div');
 
         return $content;
     }
